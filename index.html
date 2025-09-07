@@ -21,54 +21,76 @@
   <div id="chartContainer"><canvas id="scoreChart"></canvas></div>
   <p id="comment"></p>
 <script>
-  // 안전한 UTF-8 Base64 디코더
-  const dec = b64 =>
-    new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+  // --- 안전한 UTF-8 Base64 디코더 (문제 나면 null 반환) ---
+  const tryBase64Decode = (b64) => {
+    try {
+      if (typeof b64 !== "string" || b64.trim() === "") return null;
+      // URL 인코딩 풀기 (d=가 encodeURIComponent 된 상태이므로)
+      const decoded = new TextDecoder().decode(
+        Uint8Array.from(atob(decodeURIComponent(b64)), c => c.charCodeAt(0))
+      );
+      return decoded;
+    } catch { return null; }
+  };
 
-  const params = new URLSearchParams(window.location.search);
+  // --- 점수 문자열을 숫자로 안전 변환: Base64 → 숫자, 또는 그냥 숫자 문자열 → 숫자 ---
+  const toNumberSafe = (maybeB64orNum) => {
+    // 1) 먼저 Base64 시도
+    const asStr = typeof maybeB64orNum === "string" ? maybeB64orNum.trim() : String(maybeB64orNum);
+    let decoded = tryBase64Decode(asStr);
+    if (decoded !== null) {
+      const n = Number(decoded.trim());
+      return Number.isFinite(n) ? n : NaN;
+    }
+    // 2) 실패하면 그냥 숫자 파싱
+    const n = Number(asStr.trim());
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  const params = new URLSearchParams(location.search);
   let user = "사용자", comment = "", labels = [], scores = [];
 
-  if (params.get("d")) {
-    // 새 방식: ?d=<base64(JSON)>
-    try {
-      const payload = JSON.parse(dec(decodeURIComponent(params.get("d"))));
-      user = payload.user || user;
-      comment = payload.comment || "";
+  if (params.has("d")) {
+    // ===== 새 방식: 전체 payload를 d=Base64(JSON)로 전달 =====
+    const jsonText = tryBase64Decode(params.get("d"));
+    if (jsonText !== null) {
+      try {
+        const payload = JSON.parse(jsonText);
+        user = (payload.user ?? user) || user;
+        comment = (payload.comment ?? "") || "";
 
-      const items = Array.isArray(payload.items) ? payload.items : [];
-      labels = [];
-      scores = [];
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        labels = [];
+        scores = [];
 
-      // ★ 라벨과 점수를 "유효한 것만" 짝지어 push
-      items.forEach((it, idx) => {
-        const label = it.label || `점수 ${idx + 1}`;
-        let val;
-
-        if (typeof it.score === "string") {
-          // 1) Base64 시도
-          try { val = Number(dec(it.score)); }
-          catch { val = Number(it.score); } // 2) 실패하면 그냥 숫자로
-        } else {
-          val = Number(it.score);
-        }
-
-        if (Number.isFinite(val)) {
-          labels.push(label);
-          scores.push(val);
-        }
-      });
-    } catch (e) {
-      console.warn("Base64 payload parse error:", e);
+        items.forEach((it, i) => {
+          const label = (it && it.label) ? String(it.label).trim() : `점수 ${i+1}`;
+          const val = toNumberSafe(it?.score);
+          if (Number.isFinite(val)) {  // ★ 유효한 쌍만 반영
+            labels.push(label);
+            scores.push(val);
+          }
+        });
+      } catch (e) {
+        console.warn("payload JSON parse error:", e);
+      }
+    } else {
+      console.warn("d param base64 decode failed");
     }
   } else {
-    // 구 방식 호환: ?user=&scorecount=&label1=&score1=...
+    // ===== 구 방식 호환: ?user=&scorecount=&label1=&score1=... =====
     user = params.get("user") || user;
     comment = params.get("comment") || "";
-    const n = parseInt(params.get("scorecount")) || 0;
+    const n = Number(params.get("scorecount")) || 0;
+    labels = [];
+    scores = [];
     for (let i = 1; i <= n; i++) {
       const label = params.get(`label${i}`) || `점수 ${i}`;
-      const score = Number(params.get(`score${i}`));
-      if (Number.isFinite(score)) { labels.push(label); scores.push(score); }
+      const num = Number(params.get(`score${i}`));
+      if (Number.isFinite(num)) {
+        labels.push(label);
+        scores.push(num);
+      }
     }
   }
 
@@ -76,7 +98,12 @@
   document.getElementById("title").textContent = `${user}님의 점수 차트`;
   if (comment) document.getElementById("comment").textContent = comment;
 
-  // 차트 렌더
+  // 점수가 하나도 없으면 가드(개발용 메시지)
+  if (!scores.length) {
+    console.warn("No valid scores parsed. labels=", labels, "scores=", scores);
+  }
+
+  // 차트
   new Chart(document.getElementById("scoreChart"), {
     type: "bar",
     data: {
@@ -98,5 +125,6 @@
 </script>
 </body>
 </html>
+
 
 
