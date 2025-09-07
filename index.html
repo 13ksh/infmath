@@ -21,63 +21,67 @@
   <div id="chartContainer"><canvas id="scoreChart"></canvas></div>
   <p id="comment"></p>
 
-  <script>
-    // 안전한 UTF-8 Base64
-    const dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+<script>
+  // Base64 UTF-8 디코더
+  const dec = b64 =>
+    new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
 
-    const params = new URLSearchParams(window.location.search);
-    let user = "사용자", comment = "", labels = [], scores = [];
+  const params = new URLSearchParams(window.location.search);
+  let user = "사용자", comment = "", labels = [], scores = [];
 
-    if (params.get("d")) {
-      // ----- 새 방식: Base64(JSON) -----
-      try {
-        const json = dec(decodeURIComponent(params.get("d")));
-        const payload = JSON.parse(json);
-        user = payload.user || user;
-        comment = payload.comment || "";
-        const items = Array.isArray(payload.items) ? payload.items : [];
-        labels = items.map((it,i)=> it.label || `점수 ${i+1}`);
-        scores = items.map(it => Number(it.score)).filter(v=>!Number.isNaN(v));
-      } catch (e) {
-        console.warn("Base64 payload parse error:", e);
-      }
-    } else {
-      // ----- 구 방식 호환 -----
-      user = params.get("user") || user;
-      comment = params.get("comment") || "";
-      const n = parseInt(params.get("scorecount")) || 0;
-      for (let i=1;i<=n;i++){
-        const label = params.get(`label${i}`) || `점수 ${i}`;
-        const score = parseInt(params.get(`score${i}`));
-        if(!isNaN(score)){ labels.push(label); scores.push(score); }
-      }
+  if (params.get("d")) {
+    // ===== 새 방식: ?d=<base64(JSON)>
+    try {
+      const payload = JSON.parse(dec(decodeURIComponent(params.get("d"))));
+      user = payload.user || user;
+      comment = payload.comment || "";
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      labels = items.map((it, i) => it.label || `점수 ${i + 1}`);
+      // 점수도 base64 문자열로 넘어온 경우 복호화
+      scores = items
+        .map(it => {
+          try { return Number(dec(it.score)); } catch { return NaN; }
+        })
+        .filter(v => !Number.isNaN(v));
+    } catch (e) {
+      console.warn("Base64 payload parse error:", e);
     }
+  } else {
+    // ===== 구 방식 그대로 동작 (호환)
+    user = params.get("user") || user;
+    comment = params.get("comment") || "";
+    const n = parseInt(params.get("scorecount")) || 0;
+    for (let i = 1; i <= n; i++) {
+      const label = params.get(`label${i}`) || `점수 ${i}`;
+      const score = parseInt(params.get(`score${i}`));
+      if (!isNaN(score)) { labels.push(label); scores.push(score); }
+    }
+  }
 
-    // 제목/멘트
-    document.getElementById("title").innerText = `${user}님의 점수 차트`;
-    if (comment) document.getElementById("comment").innerText = comment;
+  // 제목/멘트
+  document.getElementById("title").innerText = `${user}님의 점수 차트`;
+  if (comment) document.getElementById("comment").innerText = comment;
 
-    // 차트
-    new Chart(document.getElementById("scoreChart"), {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [{
-          label: "점수",
-          data: scores,
-          backgroundColor: "rgba(54,162,235,0.6)",
-          borderColor: "rgba(54,162,235,1)",
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: { beginAtZero: true, min: 0, max: 100 } // y축 0~100 고정
-        }
-      }
-    });
-  </script>
+  // 차트
+  new Chart(document.getElementById("scoreChart"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "점수",
+        data: scores,
+        backgroundColor: "rgba(54, 162, 235, 0.6)",
+        borderColor: "rgba(54, 162, 235, 1)",
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true, min: 0, max: 100 } }
+    }
+  });
+</script>
 </body>
 </html>
+
