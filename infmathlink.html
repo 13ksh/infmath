@@ -17,7 +17,6 @@
     input,textarea,button{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:1rem;background:#fff}
     textarea{min-height:72px;resize:vertical}
     button.primary{background:var(--pri);color:#fff;border-color:transparent;cursor:pointer}
-    button.ghost{background:#fff;color:var(--pri);border:1px solid var(--pri);cursor:pointer}
     .tbl{width:100%;border-collapse:collapse;margin-top:6px;border-spacing:0}
     .tbl th,.tbl td{padding:10px;border-bottom:1px solid var(--line);text-align:left}
     .tbl thead th{color:var(--muted);font-weight:600;font-size:.9rem}
@@ -69,10 +68,13 @@
       </table>
 
       <div class="sep"></div>
-      <div class="right"><button class="primary" id="makeUrl">URL 생성</button></div>
+
+      <div class="right">
+        <button class="primary" id="makeAndCopyUrl">URL 생성 및 복사</button>
+      </div>
+
       <div class="out">
         <input id="resultUrl" readonly placeholder="생성된 URL">
-        <button class="ghost" id="copyUrl" type="button">복사</button>
       </div>
     </div>
   </div>
@@ -111,32 +113,37 @@
       if(tbody.children.length>1){ tbody.lastElementChild.remove(); countInput.value = tbody.children.length; }
     };
 
-  function buildUrl(){
-    const base = (baseUrlEl.value||"page.html").trim();
-    const user = (userEl.value||"사용자").trim();
-    const comment = (commentEl.value||"").trim();
+    function buildUrl(){
+      const base = (baseUrlEl.value||"page.html").trim();
+      const user = (userEl.value||"사용자").trim();
+      const comment = (commentEl.value||"").trim();
 
-    const items = [...tbody.querySelectorAll("tr")].map((tr,idx)=>{
-      const label = tr.querySelector('input[data-type="label"]').value.trim() || `점수 ${idx+1}`;
-      const scoreRaw = tr.querySelector('input[data-type="score"]').value.trim();
-      const num = Number(scoreRaw);
-      return { label, score: Number.isFinite(num) ? enc(String(num)) : null };
-    }).filter(x=>x.score!==null);
+      const items = [...tbody.querySelectorAll("tr")].map((tr,idx)=>{
+        const label = tr.querySelector('input[data-type="label"]').value.trim() || `점수 ${idx+1}`;
+        const scoreRaw = tr.querySelector('input[data-type="score"]').value.trim();
+        const num = Number(scoreRaw);
+        return { label, score: Number.isFinite(num) ? enc(String(num)) : null };
+      }).filter(x=>x.score!==null);
 
-    const payload = { user, comment, items };
-    const b64 = enc(JSON.stringify(payload));
-    const glue = base.includes("?") ? "&" : "?";
-    return `${base}${glue}d=${encodeURIComponent(b64)}`;
-  }
+      const payload = { user, comment, items };
+      const b64 = enc(JSON.stringify(payload));
+      const glue = base.includes("?") ? "&" : "?";
+      return `${base}${glue}d=${encodeURIComponent(b64)}`;
+    }
 
-    document.querySelector("#makeUrl").onclick = () => resultEl.value = buildUrl();
-    document.querySelector("#copyUrl").onclick = async (e) => {
-      if(!resultEl.value) resultEl.value = buildUrl();
-      try{ await navigator.clipboard.writeText(resultEl.value);
-           const t=e.target; const old=t.textContent; t.textContent="복사됨!"; setTimeout(()=>t.textContent=old,1200);
-      }catch{ resultEl.select(); document.execCommand("copy"); }
+    document.querySelector("#makeAndCopyUrl").onclick = async (e) => {
+      const url = buildUrl();
+      resultEl.value = url;
+      try {
+        await navigator.clipboard.writeText(url);
+        const old = e.target.textContent;
+        e.target.textContent = "복사됨!";
+        setTimeout(()=> e.target.textContent = old, 1200);
+      } catch {
+        resultEl.select();
+        document.execCommand("copy");
+      }
     };
   </script>
 </body>
 </html>
-
