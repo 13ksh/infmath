@@ -111,21 +111,23 @@
       if(tbody.children.length>1){ tbody.lastElementChild.remove(); countInput.value = tbody.children.length; }
     };
 
-    function buildUrl(){
-      const base = (baseUrlEl.value||"page.html").trim();
-      const user = (userEl.value||"사용자").trim();
-      const comment = (commentEl.value||"").trim();
-      const items = [...tbody.querySelectorAll("tr")].map((tr,idx)=>{
-        const label = tr.querySelector('input[data-type="label"]').value.trim() || `점수 ${idx+1}`;
-        const score = Number(tr.querySelector('input[data-type="score"]').value);
-        return { label, score: Number.isFinite(score)?score:null };
-      }).filter(x=>x.score!==null);
+  function buildUrl(){
+    const base = (baseUrlEl.value||"page.html").trim();
+    const user = (userEl.value||"사용자").trim();
+    const comment = (commentEl.value||"").trim();
 
-      const payload = { user, comment, items };
-      const b64 = enc(JSON.stringify(payload));
-      const glue = base.includes("?") ? "&" : "?";
-      return `${base}${glue}d=${encodeURIComponent(b64)}`;
-    }
+    const items = [...tbody.querySelectorAll("tr")].map((tr,idx)=>{
+      const label = tr.querySelector('input[data-type="label"]').value.trim() || `점수 ${idx+1}`;
+      const scoreRaw = tr.querySelector('input[data-type="score"]').value.trim();
+      const num = Number(scoreRaw);
+      return { label, score: Number.isFinite(num) ? enc(String(num)) : null };
+    }).filter(x=>x.score!==null);
+
+    const payload = { user, comment, items };
+    const b64 = enc(JSON.stringify(payload));
+    const glue = base.includes("?") ? "&" : "?";
+    return `${base}${glue}d=${encodeURIComponent(b64)}`;
+  }
 
     document.querySelector("#makeUrl").onclick = () => resultEl.value = buildUrl();
     document.querySelector("#copyUrl").onclick = async (e) => {
@@ -137,3 +139,4 @@
   </script>
 </body>
 </html>
+
