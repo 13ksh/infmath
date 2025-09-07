@@ -20,9 +20,8 @@
   <h1 id="title">점수 차트</h1>
   <div id="chartContainer"><canvas id="scoreChart"></canvas></div>
   <p id="comment"></p>
-
 <script>
-  // Base64 UTF-8 디코더
+  // 안전한 UTF-8 Base64 디코더
   const dec = b64 =>
     new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
 
@@ -30,39 +29,54 @@
   let user = "사용자", comment = "", labels = [], scores = [];
 
   if (params.get("d")) {
-    // ===== 새 방식: ?d=<base64(JSON)>
+    // 새 방식: ?d=<base64(JSON)>
     try {
       const payload = JSON.parse(dec(decodeURIComponent(params.get("d"))));
       user = payload.user || user;
       comment = payload.comment || "";
+
       const items = Array.isArray(payload.items) ? payload.items : [];
-      labels = items.map((it, i) => it.label || `점수 ${i + 1}`);
-      // 점수도 base64 문자열로 넘어온 경우 복호화
-      scores = items
-        .map(it => {
-          try { return Number(dec(it.score)); } catch { return NaN; }
-        })
-        .filter(v => !Number.isNaN(v));
+      labels = [];
+      scores = [];
+
+      // ★ 라벨과 점수를 "유효한 것만" 짝지어 push
+      items.forEach((it, idx) => {
+        const label = it.label || `점수 ${idx + 1}`;
+        let val;
+
+        if (typeof it.score === "string") {
+          // 1) Base64 시도
+          try { val = Number(dec(it.score)); }
+          catch { val = Number(it.score); } // 2) 실패하면 그냥 숫자로
+        } else {
+          val = Number(it.score);
+        }
+
+        if (Number.isFinite(val)) {
+          labels.push(label);
+          scores.push(val);
+        }
+      });
     } catch (e) {
       console.warn("Base64 payload parse error:", e);
     }
   } else {
-    // ===== 구 방식 그대로 동작 (호환)
+    // 구 방식 호환: ?user=&scorecount=&label1=&score1=...
     user = params.get("user") || user;
     comment = params.get("comment") || "";
     const n = parseInt(params.get("scorecount")) || 0;
     for (let i = 1; i <= n; i++) {
       const label = params.get(`label${i}`) || `점수 ${i}`;
-      const score = parseInt(params.get(`score${i}`));
-      if (!isNaN(score)) { labels.push(label); scores.push(score); }
+      const score = Number(params.get(`score${i}`));
+      if (Number.isFinite(score)) { labels.push(label); scores.push(score); }
     }
   }
 
   // 제목/멘트
-  document.getElementById("title").innerText = `${user}님의 점수 차트`;
-  if (comment) document.getElementById("comment").innerText = comment;
+  document.getElementById("title").textContent = `${user}님의 점수 차트`;
+  if (comment) document.getElementById("comment").textContent = comment;
 
-  // 차트
+  // 차트 렌더
   new Chart(document.getElementById("scoreChart"), {
     type: "bar",
     data: {
@@ -84,4 +98,5 @@
 </script>
 </body>
 </html>
+
 
