@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>점수 링크 생성기</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root { --bg:#fff; --text:#222; --muted:#666; --line:#e5e7eb; --pri:#2563eb; }
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    }
+    .wrap{max-width:860px; margin:40px auto; padding:0 20px}
+    h1{margin:.2rem 0 1.2rem; font-size:clamp(1.4rem,2.2vw,2rem); text-align:center}
+    .card{
+      border:1px solid var(--line); border-radius:16px; padding:18px; background:#fff;
+      box-shadow:0 4px 16px rgba(0,0,0,.04);
+    }
+    .row{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px}
+    .row > .col{flex:1 1 220px}
+    label{display:block; font-size:.9rem; color:var(--muted); margin-bottom:6px}
+    input, textarea, select, button{
+      width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:1rem; background:#fff;
+    }
+    textarea{min-height:72px; resize:vertical}
+    button.primary{
+      background:var(--pri); color:#fff; border-color:transparent; cursor:pointer;
+    }
+    button.ghost{
+      background:#fff; color:var(--pri); border:1px solid var(--pri); cursor:pointer;
+    }
+    .tbl{width:100%; border-collapse:collapse; margin-top:6px; border-spacing:0}
+    .tbl th, .tbl td{padding:10px; border-bottom:1px solid var(--line); text-align:left}
+    .tbl thead th{color:var(--muted); font-weight:600; font-size:.9rem}
+    .right{display:flex; gap:8px; justify-content:flex-end}
+    .out{display:flex; gap:10px; align-items:center; margin-top:14px}
+    .out input{flex:1 1 auto}
+    small.hint{color:var(--muted)}
+    .pill{display:inline-block; font-size:.83rem; padding:.25rem .5rem; border:1px solid var(--line); border-radius:999px; color:var(--muted)}
+    .foot{margin-top:12px; color:var(--muted); font-size:.9rem}
+    .sep{height:1px; background:var(--line); margin:18px 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>점수 차트 링크 생성기</h1>
+
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label>기본 URL</label>
+          <input id="baseUrl" placeholder="예) page.html" value="https://13ksh.github.io/infmath">
+        </div>
+        <div class="col">
+          <label>이름</label>
+          <input id="user" placeholder="예) 길동" value="길동">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label>멘트</label>
+          <textarea id="comment" placeholder="예) 이번 시험 모두 수고했다!"></textarea>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="row" style="align-items:center">
+        <div class="col" style="flex:0 0 200px">
+          <label>점수 개수</label>
+          <input id="count" type="number" min="1" max="20" value="5">
+        </div>
+        <div class="col right" style="flex:1">
+          <button class="ghost" id="applyCount">개수 적용</button>
+          <button class="ghost" id="addRow" type="button">행 추가</button>
+          <button class="ghost" id="removeRow" type="button">행 삭제</button>
+        </div>
+      </div>
+
+      <table class="tbl" id="scoreTable">
+        <thead>
+          <tr>
+            <th style="width:72px">#</th>
+            <th>종류</th>
+            <th style="width:200px">점수</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="sep"></div>
+
+      <div class="right">
+        <button class="primary" id="makeUrl">URL 생성</button>
+      </div>
+
+      <div class="out">
+        <input id="resultUrl" readonly placeholder="생성된 URL">
+        <button class="ghost" id="copyUrl" type="button">복사</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tbody = document.querySelector("#scoreTable tbody");
+    const countInput = document.querySelector("#count");
+    const baseUrlEl = document.querySelector("#baseUrl");
+    const userEl = document.querySelector("#user");
+    const commentEl = document.querySelector("#comment");
+    const resultEl = document.querySelector("#resultUrl");
+
+    function createRow(idx, labelVal = "", scoreVal = "") {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${idx}</td>
+        <td><input placeholder="예) 수2" data-type="label" data-idx="${idx}" value="${labelVal}"></td>
+        <td><input type="number" placeholder="예) 95" data-type="score" data-idx="${idx}" value="${scoreVal}"></td>
+      `;
+      return tr;
+    }
+
+    function rebuildRows(n) {
+      tbody.innerHTML = "";
+      const current = [...tbody.querySelectorAll("tr")].length;
+      for (let i = 1; i <= n; i++) {
+        tbody.appendChild(createRow(i));
+      }
+    }
+
+    // 초기 3행
+    rebuildRows(parseInt(countInput.value, 10));
+
+    document.querySelector("#applyCount").addEventListener("click", () => {
+      const n = Math.max(1, Math.min(50, parseInt(countInput.value || "1", 10)));
+      countInput.value = n;
+      rebuildRows(n);
+    });
+
+    document.querySelector("#addRow").addEventListener("click", () => {
+      const n = tbody.querySelectorAll("tr").length + 1;
+      countInput.value = n;
+      tbody.appendChild(createRow(n));
+    });
+
+    document.querySelector("#removeRow").addEventListener("click", () => {
+      const rows = tbody.querySelectorAll("tr");
+      if (rows.length > 1) {
+        rows[rows.length - 1].remove();
+        countInput.value = rows.length - 1;
+      }
+    });
+
+    function buildUrl() {
+      const base = (baseUrlEl.value || "page.html").trim();
+      const user = (userEl.value || "사용자").trim();
+      const comment = (commentEl.value || "").trim();
+
+      const rows = [...tbody.querySelectorAll("tr")];
+      const n = rows.length;
+
+      const params = new URLSearchParams();
+      params.set("user", user);
+      params.set("scorecount", String(n));
+
+      rows.forEach((tr, i) => {
+        const idx = i + 1;
+        const label = tr.querySelector('input[data-type="label"]').value.trim() || `점수 ${idx}`;
+        const score = tr.querySelector('input[data-type="score"]').value.trim();
+        if (score !== "") {
+          params.set(`label${idx}`, label);
+          params.set(`score${idx}`, score);
+        }
+      });
+
+      if (comment) params.set("comment", comment);
+
+      // 완성 URL
+      const glue = base.includes("?") ? "&" : "?";
+      return `${base}${glue}${params.toString()}`;
+    }
+
+    document.querySelector("#makeUrl").addEventListener("click", () => {
+      resultEl.value = buildUrl();
+    });
+
+    document.querySelector("#copyUrl").addEventListener("click", async () => {
+      if (!resultEl.value) {
+        resultEl.value = buildUrl();
+      }
+      try {
+        await navigator.clipboard.writeText(resultEl.value);
+        const old = event.target.textContent;
+        event.target.textContent = "복사됨!";
+        setTimeout(()=> event.target.textContent = old, 1200);
+      } catch (e) {
+        resultEl.select();
+        document.execCommand("copy");
+      }
+    });
+  </script>
+</body>
+</html>
